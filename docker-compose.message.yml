@@ -1,0 +1,50 @@
+# Celeris Message — Async notification service
+# Usage: docker compose -f docker-compose.yml -f docker-compose.message.yml up --build
+
+services:
+  message:
+    build:
+      context: ../..
+      dockerfile: celeris-message/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+      - "9090:9090"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://message-db:5432/celeris_message
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER:-postgres}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_MAIL_HOST: ${MAIL_HOST:-smtp.example.com}
+      SPRING_MAIL_PORT: ${MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${MAIL_USERNAME:-noreply@example.com}
+      SPRING_MAIL_PASSWORD: ${MAIL_PASSWORD:-changeme}
+    depends_on:
+      message-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  message-db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: celeris_message
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - message-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  message-db-data:

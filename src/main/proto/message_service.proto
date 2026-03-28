@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package celeris.message;
+
+option java_multiple_files = true;
+option java_package = "com.celeris.message.grpc.proto";
+option java_outer_classname = "MessageServiceProto";
+
+service MessageService {
+  // Send a single message
+  rpc Send(SendRequest) returns (SendResponse);
+  // Batch send messages
+  rpc BatchSend(BatchSendRequest) returns (BatchSendResponse);
+  // Query send status
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+}
+
+message SendRequest {
+  string template_code = 1;      // Template code (optional, skip if sending raw content)
+  string channel = 2;            // EMAIL / SMS / WEBHOOK / IN_APP
+  string recipient = 3;          // Recipient address
+  string subject = 4;            // Subject line
+  string content = 5;            // Direct content (mutually exclusive with template_code)
+  map<string, string> vars = 6;  // Template variables
+  string biz_id = 7;             // Business correlation ID (idempotency key)
+}
+
+message SendResponse {
+  bool success = 1;
+  string message_id = 2;
+  string error_msg = 3;
+}
+
+message BatchSendRequest {
+  repeated SendRequest requests = 1;
+}
+
+message BatchSendResponse {
+  repeated SendResponse results = 1;
+  int32 success_count = 2;
+  int32 fail_count = 3;
+}
+
+message StatusRequest {
+  string biz_id = 1;
+}
+
+message StatusResponse {
+  string biz_id = 1;
+  string status = 2;             // PENDING / SENDING / SENT / FAILED
+  string channel = 3;
+  string recipient = 4;
+  int32 retry_count = 5;
+  string error_msg = 6;
+  string created_at = 7;
+  string sent_at = 8;
+}

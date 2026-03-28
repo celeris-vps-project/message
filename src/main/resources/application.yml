@@ -1,0 +1,61 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: celeris-message
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/celeris_message
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+  mail:
+    host: smtp.example.com
+    port: 587
+    username: noreply@example.com
+    password: changeme
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    cache: true
+
+grpc:
+  server:
+    port: 9090
+
+message:
+  retry:
+    max-attempts: 3
+    initial-interval-ms: 1000
+    multiplier: 2.0
+  redis-stream:
+    stream-key: celeris:message:stream
+    consumer-group: message-service-group
+    consumer-name: consumer-1

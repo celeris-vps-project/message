@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Order Confirmation</title>
+</head>
+<body style="font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;">
+<div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px;">
+    <h2 style="color: #333;">Order Confirmation</h2>
+    <p>Dear <span th:text="${username}">User</span>,</p>
+    <p>Your order <strong th:text="${orderId}">ORD-001</strong> has been confirmed.</p>
+    <div style="background-color: #f8f9fa; padding: 15px; border-radius: 4px; margin: 20px 0;">
+        <p style="margin: 5px 0;"><strong>Order Total:</strong> <span th:text="${amount}">$0.00</span></p>
+    </div>
+    <p>Thank you for your purchase!</p>
+    <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;"/>
+    <p style="color: #999; font-size: 12px;">This is an automated message from Celeris.</p>
+</div>
+</body>
+</html>
