@@ -4,8 +4,13 @@ import com.celeris.message.domain.enums.ChannelType;
 import com.celeris.message.domain.model.MessageRecord;
 import com.celeris.message.domain.model.MessageRequest;
 import com.celeris.message.domain.model.SendResult;
+import com.celeris.message.exception.InvalidMessageRequestException;
+import com.celeris.message.exception.MessageConflictException;
+import com.celeris.message.exception.TemplateNotFoundException;
 import com.celeris.message.grpc.proto.*;
 import com.celeris.message.service.MessageService;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,42 +29,46 @@ public class MessageGrpcServiceImpl extends MessageServiceGrpc.MessageServiceImp
     public void send(SendRequest request, StreamObserver<SendResponse> responseObserver) {
         log.info("gRPC Send: channel={}, recipient={}, bizId={}", request.getChannel(), request.getRecipient(), request.getBizId());
 
-        MessageRequest msgRequest = toMessageRequest(request);
-        SendResult result = messageService.send(msgRequest);
-
-        SendResponse response = SendResponse.newBuilder()
-                .setSuccess(result.isSuccess())
-                .setMessageId(result.getMessageId() != null ? result.getMessageId() : "")
-                .setErrorMsg(result.getErrorMsg() != null ? result.getErrorMsg() : "")
-                .build();
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        try {
+            SendResult result = messageService.send(toMessageRequest(request));
+            responseObserver.onNext(toSendResponse(result));
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            responseObserver.onError(toGrpcException(e));
+        }
     }
 
     @Override
     public void batchSend(BatchSendRequest request, StreamObserver<BatchSendResponse> responseObserver) {
         log.info("gRPC BatchSend: count={}", request.getRequestsCount());
 
+        if (request.getRequestsList().isEmpty()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("requests list cannot be empty")
+                    .asRuntimeException());
+            return;
+        }
+
         BatchSendResponse.Builder builder = BatchSendResponse.newBuilder();
         int successCount = 0;
         int failCount = 0;
 
         for (SendRequest req : request.getRequestsList()) {
-            MessageRequest msgRequest = toMessageRequest(req);
-            SendResult result = messageService.send(msgRequest);
-
-            SendResponse resp = SendResponse.newBuilder()
-                    .setSuccess(result.isSuccess())
-                    .setMessageId(result.getMessageId() != null ? result.getMessageId() : "")
-                    .setErrorMsg(result.getErrorMsg() != null ? result.getErrorMsg() : "")
-                    .build();
-            builder.addResults(resp);
-
-            if (result.isSuccess()) {
-                successCount++;
-            } else {
+            try {
+                SendResult result = messageService.send(toMessageRequest(req));
+                SendResponse resp = toSendResponse(result);
+                builder.addResults(resp);
+                if (result.isSuccess()) {
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (Exception e) {
                 failCount++;
+                builder.addResults(SendResponse.newBuilder()
+                        .setSuccess(false)
+                        .setErrorMsg(describeException(e))
+                        .build());
             }
         }
 
@@ -73,6 +82,13 @@ public class MessageGrpcServiceImpl extends MessageServiceGrpc.MessageServiceImp
     @Override
     public void getStatus(StatusRequest request, StreamObserver<StatusResponse> responseObserver) {
         log.info("gRPC GetStatus: bizId={}", request.getBizId());
+
+        if (request.getBizId().isEmpty()) {
+            responseObserver.onError(Status.INVALID_ARGUMENT
+                    .withDescription("bizId is required")
+                    .asRuntimeException());
+            return;
+        }
 
         MessageRecord record = messageService.getStatus(request.getBizId());
 
@@ -108,10 +124,40 @@ public class MessageGrpcServiceImpl extends MessageServiceGrpc.MessageServiceImp
     }
 
     private ChannelType parseChannel(String channel) {
+        if (channel == null || channel.isBlank()) {
+            return null;
+        }
         try {
             return ChannelType.valueOf(channel.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Unknown channel type: " + channel);
+            throw new InvalidMessageRequestException(
+                    "Unknown channel type: " + channel + ". Valid values: EMAIL, SMS, WEBHOOK, IN_APP"
+            );
         }
+    }
+
+    private SendResponse toSendResponse(SendResult result) {
+        return SendResponse.newBuilder()
+                .setSuccess(result.isSuccess())
+                .setMessageId(result.getMessageId() != null ? result.getMessageId() : "")
+                .setErrorMsg(result.getErrorMsg() != null ? result.getErrorMsg() : "")
+                .build();
+    }
+
+    private StatusRuntimeException toGrpcException(Exception exception) {
+        if (exception instanceof InvalidMessageRequestException) {
+            return Status.INVALID_ARGUMENT.withDescription(exception.getMessage()).asRuntimeException();
+        }
+        if (exception instanceof TemplateNotFoundException) {
+            return Status.NOT_FOUND.withDescription(exception.getMessage()).asRuntimeException();
+        }
+        if (exception instanceof MessageConflictException) {
+            return Status.ALREADY_EXISTS.withDescription(exception.getMessage()).asRuntimeException();
+        }
+        return Status.INTERNAL.withDescription(describeException(exception)).asRuntimeException();
+    }
+
+    private String describeException(Exception exception) {
+        return exception.getMessage() != null ? exception.getMessage() : exception.getClass().getSimpleName();
     }
 }

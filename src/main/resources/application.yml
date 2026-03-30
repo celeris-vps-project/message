@@ -51,11 +51,22 @@ grpc:
     port: 9090
 
 message:
+  auth:
+    service-token: change-me-message-service-token
   retry:
     max-attempts: 3
     initial-interval-ms: 1000
     multiplier: 2.0
+  in-app:
+    sse-timeout-ms: 1800000
+    sse-heartbeat-ms: 25000
   redis-stream:
     stream-key: celeris:message:stream
     consumer-group: message-service-group
     consumer-name: consumer-1
+    dead-letter-stream-key: celeris:message:stream:dead-letter
+    delivery-attempt-hash-key: celeris:message:stream:delivery-attempts
+    max-delivery-attempts: 5
+    reclaim-idle-ms: 60000
+    reclaim-batch-size: 20
+    reclaim-fixed-delay-ms: 30000

@@ -16,8 +16,8 @@ public class WebhookChannel extends AbstractMessageChannel {
 
     private final RestTemplate restTemplate;
 
-    public WebhookChannel() {
-        this.restTemplate = new RestTemplate();
+    public WebhookChannel(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
     @Override
@@ -32,8 +32,10 @@ public class WebhookChannel extends AbstractMessageChannel {
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<String> entity = new HttpEntity<>(request.getContent(), headers);
             restTemplate.postForEntity(request.getRecipient(), entity, String.class);
+            log.info("Webhook sent successfully: url={}", request.getRecipient());
             return SendResult.ok(request.getBizId());
         } catch (Exception e) {
+            log.error("Failed to send webhook: url={}, error={}", request.getRecipient(), e.getMessage(), e);
             return SendResult.fail(e.getMessage());
         }
     }

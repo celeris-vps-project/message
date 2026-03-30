@@ -9,7 +9,7 @@ import java.util.List;
 @Repository
 public interface InAppMessageRepository extends JpaRepository<InAppMessage, Long> {
 
-    List<InAppMessage> findByUserIdAndIsReadFalseOrderByCreatedAtDesc(Long userId);
+    List<InAppMessage> findByUserIdAndIsReadFalseOrderByCreatedAtDesc(String userId);
 
-    List<InAppMessage> findByUserIdOrderByCreatedAtDesc(Long userId);
+    List<InAppMessage> findByUserIdOrderByCreatedAtDesc(String userId);
 }

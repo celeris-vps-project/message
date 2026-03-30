@@ -1,21 +1,29 @@
 package com.celeris.message.template;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
+import org.thymeleaf.templatemode.TemplateMode;
+import org.thymeleaf.templateresolver.StringTemplateResolver;
 
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Component
-@RequiredArgsConstructor
 public class ThymeleafRenderer implements TemplateRenderer {
 
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{(\\w+)}");
 
-    private final TemplateEngine templateEngine;
+    private final TemplateEngine stringTemplateEngine;
+
+    public ThymeleafRenderer() {
+        // Create a dedicated TemplateEngine for inline string templates
+        this.stringTemplateEngine = new TemplateEngine();
+        StringTemplateResolver resolver = new StringTemplateResolver();
+        resolver.setTemplateMode(TemplateMode.HTML);
+        stringTemplateEngine.setTemplateResolver(resolver);
+    }
 
     @Override
     public String render(String template, Map<String, String> vars) {
@@ -23,7 +31,7 @@ public class ThymeleafRenderer implements TemplateRenderer {
         if (vars != null) {
             vars.forEach(context::setVariable);
         }
-        return templateEngine.process(template, context);
+        return stringTemplateEngine.process(template, context);
     }
 
     @Override

@@ -7,6 +7,8 @@ import com.celeris.message.domain.model.MessageRecord;
 import com.celeris.message.domain.model.MessageRequest;
 import com.celeris.message.domain.model.MessageTemplate;
 import com.celeris.message.domain.model.SendResult;
+import com.celeris.message.exception.InvalidMessageRequestException;
+import com.celeris.message.exception.MessageConflictException;
 import com.celeris.message.repository.MessageRecordRepository;
 import com.celeris.message.service.TemplateService;
 import com.celeris.message.template.TemplateRenderer;
@@ -96,7 +98,7 @@ class MessageDispatcherTest {
                 .build();
 
         when(recordRepository.findByBizId("biz-101")).thenReturn(Optional.empty());
-        when(templateService.findByCode("order-confirm")).thenReturn(Optional.of(template));
+        when(templateService.resolveByCode("order-confirm")).thenReturn(Optional.of(template));
         when(templateRenderer.renderSimple(eq("Hello ${username}"), any())).thenReturn("Hello John");
         when(templateRenderer.renderSimple(eq("Order ${orderId}"), any())).thenReturn("Order ORD-001");
         when(recordRepository.save(any(MessageRecord.class))).thenAnswer(inv -> {
@@ -144,15 +146,28 @@ class MessageDispatcherTest {
                 .content("Hello")
                 .build();
 
-        when(recordRepository.save(any(MessageRecord.class))).thenAnswer(inv -> {
-            MessageRecord r = inv.getArgument(0);
-            r.setId(3L);
-            return r;
-        });
+        assertThrows(InvalidMessageRequestException.class, () -> dispatcher.dispatch(request));
+        verify(recordRepository, never()).save(any(MessageRecord.class));
+    }
 
-        SendResult result = dispatcher.dispatch(request);
+    @Test
+    void dispatch_duplicateFailedRecord_throwsConflict() {
+        MessageRecord existing = MessageRecord.builder()
+                .id(100L)
+                .bizId("dup-failed")
+                .status(MessageStatus.FAILED)
+                .build();
 
-        assertFalse(result.isSuccess());
-        assertTrue(result.getErrorMsg().contains("Unsupported channel"));
+        when(recordRepository.findByBizId("dup-failed")).thenReturn(Optional.of(existing));
+
+        MessageRequest request = MessageRequest.builder()
+                .channel(ChannelType.EMAIL)
+                .recipient("test@example.com")
+                .content("Hello")
+                .bizId("dup-failed")
+                .build();
+
+        assertThrows(MessageConflictException.class, () -> dispatcher.dispatch(request));
+        verify(emailChannel, never()).send(any());
     }
 }

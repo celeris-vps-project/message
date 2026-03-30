@@ -47,7 +47,7 @@ message StatusRequest {
 
 message StatusResponse {
   string biz_id = 1;
-  string status = 2;             // PENDING / SENDING / SENT / FAILED
+  string status = 2;             // PENDING / SENDING / SENT / FAILED / EXHAUSTED
   string channel = 3;
   string recipient = 4;
   int32 retry_count = 5;
